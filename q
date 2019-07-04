@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright (C) 2012, 2013  Alexander Berntsen <alexander@plaimi.net>
 # Copyright (C) 2012, 2013  Stian Ellingsen <stian@plaimi.net>
@@ -60,6 +61,7 @@ class Bot(irc.IRCClient):
                            ' unique, wins INTEGER)')
         self.db.commit()
         self.hunger = 0
+        self.stamina = config.stamina
         self.complained = False
         irc.IRCClient.connectionMade(self)
 
@@ -151,7 +153,7 @@ class Bot(irc.IRCClient):
     def ask(self):
         """Ask a question."""
         self.hunger += 1
-        if self.hunger > 6:
+        if self.hunger > self.stamina:
             if not self.complained:
                 self.msg(self.factory.channel,
                          "I'm hungry. Please feed me with !botsnack.")
