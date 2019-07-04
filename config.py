@@ -12,8 +12,10 @@ username = nickname
 password = False
 # IRC nick names that can control the bot
 masters = [nickname, 'my_nickname']
-# How quickly the bot will get hungry
+# How quickly the bot will get hungry (by asking questions or giving hints)
 stamina = 6
+# Patience the bot has until it gives hints (in seconds, minimum 5)
+hintpatience = 10
 # High score database file (is automatically created)
 hiscoresdb = 'hiscores.sql'
 # Whether to print 'category - question - answer' to STDOUT

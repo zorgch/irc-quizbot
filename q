@@ -50,6 +50,7 @@ class Bot(irc.IRCClient):
             self.password = self.factory.password
             self.username = self.factory.username
         self.quizzers = {}
+        self.hint_patience = config.hintpatience
         self.last_decide = 10
         self.answered = 5
         self.winner = ''
@@ -143,7 +144,7 @@ class Bot(irc.IRCClient):
         """Figure out whether to post a question or a hint."""
         t = time()
         f, dt = ((self.ask, self.answered + 5 - t) if self.answered else
-                 (self.hint, self.last_decide + 10 - t))
+                 (self.hint, self.last_decide + self.hint_patience - t))
         if dt < 0.5:
             f()
             self.last_decide = t
