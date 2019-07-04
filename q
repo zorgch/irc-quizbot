@@ -31,6 +31,7 @@ from time import time
 from twisted.words.protocols import irc
 from twisted.internet import protocol, reactor
 
+import strings
 import questions as q
 
 
@@ -138,7 +139,7 @@ class Bot(irc.IRCClient):
         # Unknown command.
         elif msg[0] == '!':
             self.msg(self.factory.channel if channel != self.nickname else
-                     name, '... wat.')
+                     name, strings.unknowncmd)
 
     def decide(self):
         """Figure out whether to post a question or a hint."""
@@ -157,7 +158,7 @@ class Bot(irc.IRCClient):
         if self.hunger > self.stamina:
             if not self.complained:
                 self.msg(self.factory.channel,
-                         "I'm hungry. Please feed me with !botsnack.")
+                         strings.botsnack)
                 self.complained = True
             return
         # Make sure there have been ten questions in between this question.
@@ -170,7 +171,7 @@ class Bot(irc.IRCClient):
             self.recently_asked.pop(0)
         self.recently_asked.append(self.question)
         self.answer = cqa[2]
-        self.msg(self.factory.channel, 'TOPIC: %s - Q: %s' %
+        self.msg(self.factory.channel, strings.question %
                 (self.category, self.question))
         if config.verbose:
             print '%s - %s - %s' % (self.category, self.question, self.answer)
@@ -194,7 +195,7 @@ class Bot(irc.IRCClient):
         # Max 5 hints, and don't give hints when the answer is so short.
         if len(str(self.answer)) <= self.hint_num + 1 or self.hint_num >= 5:
             if (len(str(self.answer)) == 1 and self.hint_num == 0):
-                self.msg(self.factory.channel, 'HINT: only one character!')
+                self.msg(self.factory.channel, strings.hintone)
                 self.hint_num += 1
             else:
                 self.fail()
@@ -210,19 +211,19 @@ class Bot(irc.IRCClient):
         self.answer_hint = ''.join(
             '*' if idx in self.answer_masks and c is not ' ' else c for
             idx, c in enumerate(str(self.answer)))
-        self.msg(self.factory.channel, 'HINT: %s' % self.answer_hint)
+        self.msg(self.factory.channel, strings.hint % self.answer_hint)
         self.hint_num += 1
 
     def fail(self):
         """Timeout/giveup on answer."""
-        self.msg(self.factory.channel, 'the answer was: "%s"' % self.answer)
-        self.msg(self.factory.channel, 'better luck with the next question!')
+        self.msg(self.factory.channel, strings.rightanswer % self.answer)
+        self.msg(self.factory.channel, strings.wishluck)
         self.answered = time()
 
     def award(self, awardee):
         """Gives a point to awardee."""
         self.quizzers[awardee] += 1
-        self.msg(self.factory.channel, '%s is right! congratulations, %s!' %
+        self.msg(self.factory.channel, strings.correctanswer %
                 (self.answer, awardee))
         if self.quizzers[awardee] == self.target_score:
             self.win(awardee)
@@ -255,7 +256,7 @@ class Bot(irc.IRCClient):
 
         self.winner = winner
         self.msg(self.factory.channel,
-                 'congratulations to %s, you\'re winner!!!' % self.winner)
+                 strings.winner % self.winner)
         self.reset()
 
     def help(self, user):
@@ -263,15 +264,12 @@ class Bot(irc.IRCClient):
         # Prevent spamming to non-quizzers, AKA random Freenode users.
         if user not in self.quizzers:
             return
-        self.msg(user, self.factory.channel + ' is a quiz channel.')
-        self.msg(user, 'I am ' + self.nickname + ', and *I* ask the' +
-                 ' questions around here! :->')
-        self.msg(user, '!score prints the current top 5 quizzers.')
-        self.msg(user, '!hiscore prints the all time top 5 quizzers.')
-        self.msg(user, 'happy quizzing!')
-        self.msg(user, '(o, and BTW, I\'m hungry, like *all* the freaking' +
-                 ' time.')
-        self.msg(user, 'you can feed me with !botsnack. please do. often.)')
+
+        self.msg(user, strings.help_channelinfo % self.factory.channel)
+        self.msg(user, strings.help_botinfo % self.nickname)
+
+        for msgline in strings.help:
+            self.msg(user, msgline)
 
     def reload_questions(self, user):
         """Reload the question/answer list."""
@@ -283,7 +281,7 @@ class Bot(irc.IRCClient):
         """Feed quizbot."""
         self.hunger = 0
         self.complained = False
-        self.msg(self.factory.channel, 'ta. :-)')
+        self.msg(self.factory.channel, strings.thanks)
 
     def op(self, user):
         """OP a master."""
@@ -304,7 +302,7 @@ class Bot(irc.IRCClient):
             if points:
                 if points != prev_points:
                     j = i
-                self.msg(self.factory.channel, '%d. %s: %d points' %
+                self.msg(self.factory.channel, strings.score %
                          (j, quizzer, points))
                 prev_points = points
 
@@ -313,7 +311,7 @@ class Bot(irc.IRCClient):
         self.dbcur.execute('SELECT * FROM hiscore ORDER by wins DESC LIMIT 5')
         hiscore = self.dbcur.fetchall()
         for i, (quizzer, wins) in enumerate(hiscore):
-            self.msg(self.factory.channel, '%d. %s: %d points' %
+            self.msg(self.factory.channel, strings.score %
                     (i + 1, quizzer.encode('UTF-8'), wins))
 
     def set_topic(self):
@@ -322,11 +320,9 @@ class Bot(irc.IRCClient):
         if alltime is None:
             alltime = ["no one", 0]
         self.topic(
-            self.factory.channel,
-            'happy quizzing. :-> target score: %d. previous winner: %s. '
-            'all-time winner: %s (%d).' %
-            (self.target_score, self.winner, alltime[0].encode('UTF-8'),
-             alltime[1]))
+            self.factory.channel, strings.channeltopic %
+                    (self.target_score, self.winner, alltime[0].encode('UTF-8'),
+                     alltime[1]))
 
     def reset(self):
         """Set all quizzers' points to 0 and change topic."""
@@ -359,8 +355,8 @@ class Bot(irc.IRCClient):
                 return True
         if role == self.quizzers:
             return False
-        self.msg(self.factory.channel, 'not on my watch, %s!' % name)
-        self.kick(self.factory.channel, name, 'lol.')
+        self.msg(self.factory.channel, strings.invalidname % name)
+        self.kick(self.factory.channel, name, strings.kickmsg)
         self.del_quizzer(name)
         return False
 

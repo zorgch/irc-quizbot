@@ -1,3 +1,4 @@
+
 quizbot
 =======
 
@@ -12,6 +13,8 @@ Hack [config.py](config.py) to your liking (it's pretty self-explanatory).
 
 Write questions  in [questions.py](questions.py), as per the format.
 *Note*: you need at least eleven question for quizbot to work properly.
+
+Edit or change common messages by redefining the according variables in [strings.py](strings.py).
 
 Start the bot with:
 `$ ./q`
