@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 questions = [
     ['Category', 'Question 1?', 'Answer'],
     ['Category', 'Question 2?', 'Answer'],
