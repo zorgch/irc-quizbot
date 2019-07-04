@@ -1,7 +1,6 @@
 quizbot
 =======
 
---------------------------------
 Small and simple quizbot for IRC
 --------------------------------
 
@@ -9,15 +8,39 @@ Small and simple quizbot for IRC
 Use
 ===
 
-Hack config.py to your liking (it's pretty self-explanatory). Write questions 
-in questions.py, as per the format. Note: you need at least eleven question 
-for quizbot to work properly.
+Hack [config.py](config.py) to your liking (it's pretty self-explanatory).
+
+Write questions  in [questions.py](questions.py), as per the format.
+*Note*: you need at least eleven question for quizbot to work properly.
 
 Start the bot with:
-	$ ./q
-or:
-	$ python q
+`$ ./q`
+or
+`$ python q`
 
+Start and keep the bot running in a background task:
+`$ nohup ./q &`
+or
+`$ python ./q &`
+
+IRC
+----
+
+Join the same channel where quizbot is connected to.
+
+*Note*: channel users with nick names as defined in the config under `masters=[]` can control the bot, e.g. force a reload of the questions.
+
+`!help` : lists available commands
+
+Masters commands:
+`!op` : OP a master.
+`!deop` : DEOP a master
+`!reload` : Reload the question/answer list.
+
+General commands:
+`!score` : Print the top five quizzers
+`!hiscore` : Print the top five quizzers of all time
+`!botsnack` : Feed quizbot to keep it going
 
 Dependencies
 ============
@@ -27,9 +50,11 @@ below are listed with the oldest versions that are confirmed to work. Older
 versions *might* work. If they do, please report it to <alexander@plaimi.net>, 
 so that he can update this file.
 
--python 2.7.x
--twisted >= 11.0.0
--twisted-words >= 11.0.0
+- python 2.7.x
+- twisted >= 11.0.0
+`$ apt-get install python-twisted`
+- twisted-words >= 11.0.0
+`$ apt-get install python-twisted-words`
 
 A Note on Python 3
 ------------------
@@ -38,7 +63,7 @@ The 3.x interpreter will try to run this and fail. You *need* to use a 2.x
 interpreter (2.7.x is the only one with which quizbot is formally tested). 
 This may be accomplished by specifically invoking a 2.x interpreter on some 
 systems.
-        $ python2 q
+`$ python2 q`
 
 
 quizbot in #quiznode on Freenode
@@ -105,6 +130,5 @@ Author
 =======
 
 Alexander Berntsen <alexander@plaimi.net>
-
 
 /* vim: set textwidth=78 formatoptions=actw2 autoindent: */
