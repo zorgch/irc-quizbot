@@ -51,19 +51,26 @@ class Bot(irc.IRCClient):
             self.password = self.factory.password
             self.username = self.factory.username
         self.quizzers = {}
-        self.hint_patience = config.hintpatience
+        self.minplayernum = 2 if config.minplayers is None else config.minplayers
+        self.hint_patience = 6 if config.hintpatience is None else config.hintpatience
         self.last_decide = 10
         self.answered = 5
         self.winner = ''
         self.question = ''
+        if config.qrecyclethreshold is None:
+            self.recently_asked_threshold = ((20*len(q.questions))/100.0)
+        else:
+            self.recently_asked_threshold = ((config.qrecyclethreshold*len(q.questions))/100.0)
         self.recently_asked = []
-        self.db = sqlite3.connect(config.hiscoresdb)
+        self.db = sqlite3.connect(config.hiscoresdb, isolation_level=None)
         self.dbcur = self.db.cursor()
-        self.dbcur.execute('CREATE TABLE IF NOT EXISTS hiscore (quizzer TEXT'
-                           ' unique, wins INTEGER)')
+        try:
+            self.dbcur.execute('CREATE TABLE IF NOT EXISTS hiscore (quizzer TEXT unique, wins INTEGER)')
+        except self.db.IntegrityError as e:
+            print('sqlite error: ', e.args[0])
         self.db.commit()
         self.hunger = 0
-        self.stamina = config.stamina
+        self.stamina = 6 if config.stamina is None else config.stamina
         self.complained = False
         irc.IRCClient.connectionMade(self)
 
@@ -99,6 +106,15 @@ class Bot(irc.IRCClient):
         """Overrides USERRENAMED."""
         self.del_quizzer(oldname)
         self.add_quizzer(newname)
+        # Change quizzer name in DB to keep score.
+        if config.keepscore:
+            self.dbcur.execute('SELECT * FROM hiscore WHERE quizzer=?',
+                                (oldname,))
+            row = self.dbcur.fetchone()
+            if row is not None:
+                self.dbcur.execute('UPDATE hiscore SET quizzer=? WHERE quizzer=?',
+                                    (newname, oldname))
+                self.db.commit()
 
     def irc_RPL_NAMREPLY(self, prefix, params):
         """Overrides RPL_NAMEREPLY."""
@@ -142,18 +158,27 @@ class Bot(irc.IRCClient):
                      name, strings.unknowncmd)
 
     def decide(self):
-        """Figure out whether to post a question or a hint."""
-        t = time()
-        f, dt = ((self.ask, self.answered + 5 - t) if self.answered else
-                 (self.hint, self.last_decide + self.hint_patience - t))
-        if dt < 0.5:
-            f()
-            self.last_decide = t
-            dt = 5
-        reactor.callLater(min(5, dt), self.decide)
+        """Wait for enough players."""
+        numPlayers = len(self.quizzers)
+        if numPlayers < self.minplayernum:
+            self.msg(self.factory.channel, strings.waiting)
+            reactor.callLater(30, self.decide)
+            return
+        else:
+            numPlayers += 1
+        if numPlayers >= self.minplayernum:
+            """Figure out whether to post a question or a hint."""
+            t = time()
+            f, dt = ((self.ask, self.answered + 5 - t) if self.answered else
+                     (self.hint, self.last_decide + self.hint_patience - t))
+            if dt < 0.5:
+                f()
+                self.last_decide = t
+                dt = 5
+            reactor.callLater(min(5, dt), self.decide)
 
     def ask(self):
-        """Ask a question."""
+        """Make bot hungy."""
         self.hunger += 1
         if self.hunger > self.stamina:
             if not self.complained:
@@ -161,13 +186,14 @@ class Bot(irc.IRCClient):
                          strings.botsnack)
                 self.complained = True
             return
+        """Ask a question."""
         # Make sure there have been ten questions in between this question.
         while self.question in self.recently_asked or not self.question:
             cqa = choice(q.questions)
             self.question = cqa[1]
         self.category = cqa[0]
-        # This num should be changed depending on how many questions you have.
-        if len(self.recently_asked) >= 10:
+        # Clear recently asked questions when threshold is reached
+        if len(self.recently_asked) >= self.recently_asked_threshold:
             self.recently_asked.pop(0)
         self.recently_asked.append(self.question)
         self.answer = cqa[2]
@@ -243,15 +269,18 @@ class Bot(irc.IRCClient):
         if numAnswerers > 1:
             winner = quizzersByPoints[0][0]
             self.dbcur.execute('SELECT * FROM hiscore WHERE quizzer=?',
-                               (winner,))
+                                   (winner,))
             wins = 1
             row = self.dbcur.fetchone()
             if row is not None:
                 wins = row[1] + 1
-                sql = 'UPDATE hiscore SET wins = ? WHERE quizzer = ?'
+                sql = 'UPDATE hiscore SET wins=? WHERE quizzer=?'
             else:
-                sql = 'INSERT INTO hiscore (wins,quizzer) VALUES (?,?)'
-            self.dbcur.execute(sql, (wins, winner))
+                sql = 'INSERT INTO hiscore (wins, quizzer) VALUES (?, ?)'
+            try:
+                self.dbcur.execute(sql, (wins, winner))
+            except self.db.IntegrityError as e:
+                print('sqlite error: ', e.args[0])
             self.db.commit()
 
         self.winner = winner

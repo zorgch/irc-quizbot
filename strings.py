@@ -2,6 +2,7 @@
 
 # Default message strings - DON'T change these!
 question = 'TOPIC: %s - Q: %s'
+waiting = "Playing alone is no fun. Let's wait for others..."
 botsnack = "I'm hungry. Please feed me with !botsnack."
 hint = 'HINT: %s'
 hintone = 'HINT: only one character!'
