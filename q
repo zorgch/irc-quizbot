@@ -407,7 +407,9 @@ class BotFactory(protocol.ClientFactory):
         self.channel = channel
         self.nickname = config.nickname
         self.username = config.username
-        if config.password:
+        if config.password and isinstance(config.password, str):
+            self.password = config.password
+        elif config.password and config.password is True:
             self.password = getpass('enter password (will not be echoed): ')
         self.masters = config.masters
 
