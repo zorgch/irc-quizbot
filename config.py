@@ -23,7 +23,7 @@ minplayers = 2
 # Threshold representing % of total questions to keep as "recently asked questions"
 qrecyclethreshold = 80
 # High score database file (is automatically created)
-hiscoresdb = 'quiz-hiscores.sqlite'
+hiscoresdb = os.path.join(os.path.dirname(__file__), 'quiz-hiscores.sqlite')
 # Keep a player's scores when IRC nick changes.
 keepscore = True
 # Whether to print 'category - question - answer' to STDOUT
