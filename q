@@ -128,7 +128,9 @@ class Bot(irc.IRCClient):
         name = self.clean_nick(user)
         # Check for answers.
         if not self.answered:
-            if self.quizzers[name] is None:
+            if name not in self.quizzers:
+                self.quizzers[name] = 0
+            elif self.quizzers[name] is None:
                 self.quizzers[name] = 0
             if str(self.answer).lower() in msg.lower():
                 self.award(name)
