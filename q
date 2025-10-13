@@ -31,6 +31,7 @@ from time import time
 
 from twisted.words.protocols import irc
 from twisted.internet import protocol, reactor
+from twisted.python import log
 
 import strings
 import questions as q
@@ -68,7 +69,7 @@ class Bot(irc.IRCClient):
         try:
             self.dbcur.execute('CREATE TABLE IF NOT EXISTS hiscore (quizzer TEXT unique, wins INTEGER)')
         except self.db.IntegrityError as e:
-            print('sqlite error: ', e.args[0])
+            log.err(f'sqlite error: {e.args[0]}')
         self.db.commit()
         self.hunger = 0
         self.stamina = 6 if config.stamina is None else config.stamina
@@ -78,11 +79,11 @@ class Bot(irc.IRCClient):
     def signedOn(self):
         """Overrides SIGNEDON."""
         self.join(self.factory.channel)
-        print("signed on as %s" % (self.nickname))
+        log.msg(f"signed on as {self.nickname}")
 
     def joined(self, channel):
         """Overrides JOINED."""
-        print("joined %s" % channel)
+        log.msg(f"joined {channel}")
         self.op(self.nickname)
         # Get all users in the chan.
         self.sendLine("NAMES %s" % self.factory.channel)
@@ -203,7 +204,7 @@ class Bot(irc.IRCClient):
         self.msg(self.factory.channel, strings.question %
                 (self.category, self.question))
         if config.verbose:
-            print('%s - %s - %s' % (self.category, self.question, self.answer))
+            log.msg(f'{self.category} - {self.question} - {self.answer}')
         # Make list of hidden parts of the answer.
         self.answer_masks = list(range(len(str(self.answer))))
         # Set how many characters are revealed per hint.
@@ -283,7 +284,7 @@ class Bot(irc.IRCClient):
             try:
                 self.dbcur.execute(sql, (wins, winner))
             except self.db.IntegrityError as e:
-                print('sqlite error: ', e.args[0])
+                log.err(f'sqlite error: {e.args[0]}')
             self.db.commit()
 
         self.winner = winner
@@ -417,11 +418,11 @@ class BotFactory(protocol.ClientFactory):
         self.masters = config.masters
 
     def clientConnectionLost(self, connector, reason):
-        print("connection lost: (%s)\nreconnecting..." % reason)
+        log.msg(f"connection lost: ({reason})\nreconnecting...")
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
-        print("couldn't connect: %s" % reason)
+        log.err(f"couldn't connect: {reason}")
 
 if __name__ == "__main__":
     if len(argv) > 1:
@@ -434,6 +435,10 @@ if __name__ == "__main__":
         if you have set password in config, it will ask for it.
         """)
     else:
+        # Initialize logging
+        import sys
+        log.startLogging(sys.stdout)
+        
         reactor.connectTCP(config.network, config.port,
                            BotFactory('#' + config.chan))
         reactor.run()
