@@ -44,7 +44,14 @@ class Bot(irc.IRCClient):
     def _get_nickname(self):
         """Sets Bot nick to our chosen nick instead of defaultnick."""
         return self.factory.nickname
-    nickname = property(_get_nickname)
+    
+    def _set_nickname(self, value):
+        """Allow Twisted to set the nickname internally."""
+        # Twisted sets this during connection, we just ignore it
+        # and keep using factory.nickname
+        pass
+    
+    nickname = property(_get_nickname, _set_nickname)
 
     def connectionMade(self):
         """Overrides CONNECTIONMADE."""
