@@ -13,7 +13,9 @@ username = nickname
 # Whether to use a password to identify with services or not
 password = os.environ.get('NICKSERV_PASSWORD')
 # IRC nick names that can control the bot
-masters = [nickname, 'oli', 'nico', 'barbara']
+masters = [nickname, 'barbara']
+if os.environ.get('BOTMASTERS'):
+    masters = [nick.strip() for nick in os.environ.get('BOTMASTERS').split(',') if nick.strip()]
 # How quickly the bot will get hungry (by asking questions or giving hints)
 stamina = 12
 # Patience the bot has until it gives hints (in seconds, minimum 5)
@@ -27,4 +29,4 @@ hiscoresdb = os.path.join(os.path.dirname(__file__), 'quiz-hiscores.sqlite')
 # Keep a player's scores when IRC nick changes.
 keepscore = True
 # Whether to print 'category - question - answer' to STDOUT
-verbose = False
+verbose = os.environ.get('VERBOSE', 'False').lower() in ('true', '1', 'yes', 'on')
