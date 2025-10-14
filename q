@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2012, 2013  Alexander Berntsen <alexander@plaimi.net>
@@ -21,6 +21,7 @@
 
 import config
 import sqlite3
+import importlib
 
 from getpass import getpass
 from operator import itemgetter
@@ -30,6 +31,7 @@ from time import time
 
 from twisted.words.protocols import irc
 from twisted.internet import protocol, reactor
+from twisted.python import log
 
 import strings
 import questions as q
@@ -42,7 +44,14 @@ class Bot(irc.IRCClient):
     def _get_nickname(self):
         """Sets Bot nick to our chosen nick instead of defaultnick."""
         return self.factory.nickname
-    nickname = property(_get_nickname)
+    
+    def _set_nickname(self, value):
+        """Allow Twisted to set the nickname internally."""
+        # Twisted sets this during connection, we just ignore it
+        # and keep using factory.nickname
+        pass
+    
+    nickname = property(_get_nickname, _set_nickname)
 
     def connectionMade(self):
         """Overrides CONNECTIONMADE."""
@@ -67,7 +76,7 @@ class Bot(irc.IRCClient):
         try:
             self.dbcur.execute('CREATE TABLE IF NOT EXISTS hiscore (quizzer TEXT unique, wins INTEGER)')
         except self.db.IntegrityError as e:
-            print('sqlite error: ', e.args[0])
+            log.err(f'sqlite error: {e.args[0]}')
         self.db.commit()
         self.hunger = 0
         self.stamina = 6 if config.stamina is None else config.stamina
@@ -77,11 +86,11 @@ class Bot(irc.IRCClient):
     def signedOn(self):
         """Overrides SIGNEDON."""
         self.join(self.factory.channel)
-        print "signed on as %s" % (self.nickname)
+        log.msg(f"signed on as {self.nickname}")
 
     def joined(self, channel):
         """Overrides JOINED."""
-        print "joined %s" % channel
+        log.msg(f"joined {channel}")
         self.op(self.nickname)
         # Get all users in the chan.
         self.sendLine("NAMES %s" % self.factory.channel)
@@ -202,11 +211,11 @@ class Bot(irc.IRCClient):
         self.msg(self.factory.channel, strings.question %
                 (self.category, self.question))
         if config.verbose:
-            print '%s - %s - %s' % (self.category, self.question, self.answer)
+            log.msg(f'{self.category} - {self.question} - {self.answer}')
         # Make list of hidden parts of the answer.
-        self.answer_masks = range(len(str(self.answer)))
+        self.answer_masks = list(range(len(str(self.answer))))
         # Set how many characters are revealed per hint.
-        self.difficulty = max(len(str(self.answer)) / 6, 1)
+        self.difficulty = max(len(str(self.answer)) // 6, 1)
         if isinstance(self.answer, str):
             # Shuffle them around to reveal random parts of it.
             shuffle(self.answer_masks)
@@ -237,7 +246,7 @@ class Bot(irc.IRCClient):
             except:
                 pass
         self.answer_hint = ''.join(
-            '*' if idx in self.answer_masks and c is not ' ' else c for
+            '*' if idx in self.answer_masks and c != ' ' else c for
             idx, c in enumerate(str(self.answer)))
         self.msg(self.factory.channel, strings.hint % self.answer_hint)
         self.hint_num += 1
@@ -261,7 +270,7 @@ class Bot(irc.IRCClient):
     def win(self, winner):
         """Is called when target score is reached."""
         numAnswerers = 0
-        quizzersByPoints = sorted(self.quizzers.iteritems(), key=itemgetter(1),
+        quizzersByPoints = sorted(self.quizzers.items(), key=itemgetter(1),
                                   reverse=True)
         for numAnswerers, (quizzer, points) in enumerate(quizzersByPoints):
             if points is None:
@@ -282,7 +291,7 @@ class Bot(irc.IRCClient):
             try:
                 self.dbcur.execute(sql, (wins, winner))
             except self.db.IntegrityError as e:
-                print('sqlite error: ', e.args[0])
+                log.err(f'sqlite error: {e.args[0]}')
             self.db.commit()
 
         self.winner = winner
@@ -305,7 +314,7 @@ class Bot(irc.IRCClient):
     def reload_questions(self, user):
         """Reload the question/answer list."""
         if self.is_p(user, self.factory.masters):
-            reload(q)
+            importlib.reload(q)
             self.msg(self.factory.channel, 'reloaded questions.')
 
     def feed(self):
@@ -328,7 +337,7 @@ class Bot(irc.IRCClient):
         """Print the top five quizzers."""
         prev_points = -1
         for i, (quizzer, points) in enumerate(
-                sorted(self.quizzers.iteritems(), key=itemgetter(1),
+                sorted(self.quizzers.items(), key=itemgetter(1),
                        reverse=True)[:5], 1):
             if points:
                 if points != prev_points:
@@ -359,7 +368,7 @@ class Bot(irc.IRCClient):
         """Set all quizzers' points to 0 and change topic."""
         for i in self.quizzers:
             self.quizzers[i] = None
-        self.target_score = 1 + len(self.quizzers) / 2
+        self.target_score = 1 + len(self.quizzers) // 2
         self.set_topic()
 
     def add_quizzer(self, quizzer):
@@ -416,23 +425,27 @@ class BotFactory(protocol.ClientFactory):
         self.masters = config.masters
 
     def clientConnectionLost(self, connector, reason):
-        print "connection lost: (%s)\nreconnecting..." % reason
+        log.msg(f"connection lost: ({reason})\nreconnecting...")
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
-        print "couldn't connect: %s" % reason
+        log.err(f"couldn't connect: {reason}")
 
 if __name__ == "__main__":
     if len(argv) > 1:
-        print """
+        print("""
         edit config.py.
 
         start program with:
         $ ./q
 
         if you have set password in config, it will ask for it.
-        """
+        """)
     else:
+        # Initialize logging
+        import sys
+        log.startLogging(sys.stdout)
+        
         reactor.connectTCP(config.network, config.port,
                            BotFactory('#' + config.chan))
         reactor.run()

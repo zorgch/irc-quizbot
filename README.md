@@ -19,12 +19,12 @@ Edit or change common messages by redefining the according variables in [strings
 Start the bot with:
 `$ ./q`
 or
-`$ python q`
+`$ python3 q`
 
 Start and keep the bot running in a background task:
 `$ nohup ./q &`
 or
-`$ python ./q &`
+`$ python3 ./q &`
 
 IRC
 ----
@@ -48,25 +48,23 @@ General commands:
 Dependencies
 ============
 
-quizbot is written in Python and runs on the 2.7 interpreter. The dependencies 
+quizbot is written in Python and runs on the 3.x interpreter (3.6+). The dependencies 
 below are listed with the oldest versions that are confirmed to work. Older 
 versions *might* work. If they do, please report it to <alexander@plaimi.net>, 
 so that he can update this file.
 
-- python 2.7.x
+- python 3.6+
 - twisted >= 11.0.0
-`$ apt-get install python-twisted`
+`$ apt-get install python3-twisted`
 - twisted-words >= 11.0.0
-`$ apt-get install python-twisted-words`
+`$ apt-get install python3-twisted-words`
 
-A Note on Python 3
-------------------
+Python Version Note
+-------------------
 
-The 3.x interpreter will try to run this and fail. You *need* to use a 2.x 
-interpreter (2.7.x is the only one with which quizbot is formally tested). 
-This may be accomplished by specifically invoking a 2.x interpreter on some 
-systems.
-`$ python2 q`
+This bot has been refactored to support Python 3.x and is no longer compatible 
+with Python 2.x. If you need Python 2.7 support, please use an earlier version 
+of this repository.
 
 
 quizbot in #quiznode on Freenode
