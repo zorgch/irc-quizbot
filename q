@@ -94,9 +94,9 @@ class Bot(irc.IRCClient):
         if hasattr(self, 'password') and self.password:
             log.msg(f"Authenticating with NickServ...")
             self.msg("NickServ", f"IDENTIFY {self.password}")
-            # Wait 3 seconds for NickServ authentication before joining
+            # Wait 5 seconds for NickServ authentication before joining
             # This delay ensures NickServ has time to process the IDENTIFY command
-            reactor.callLater(3, self._join_channel)
+            reactor.callLater(5, self._join_channel)
         else:
             log.msg("No password configured, skipping NickServ authentication")
             self._join_channel()
