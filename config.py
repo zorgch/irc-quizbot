@@ -1,17 +1,17 @@
 import os
 
 # IRC Network to connect to
-network = 'irc'
+network = os.environ.get('IRC_SERVER', 'irc').lower()
 # Port to connect on
-port = 6667
-# Channel to join (automatically)
-chan = 'quiz'
+port = os.environ.get('IRC_SERVER_PORT', 6667)
+# Channel to join (automatically) - NO preceeding "#" hash needed!
+chan = os.environ.get('CHANNEL', 'quiz').lstrip('#')
 # Nickname of bot
-nickname = 'quizhans'
+nickname = os.environ.get('NICKNAME', 'quizhans')
 # Username to use when identifying with services (or not)
 username = nickname
 # Whether to use a password to identify with services or not
-password = os.environ.get('NICKSERV_PASSWORD')
+password = os.environ.get('NICKSERV_PASSWORD', '')
 # IRC nick names that can control the bot
 masters = [nickname, 'barbara']
 if os.environ.get('BOTMASTERS'):
