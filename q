@@ -124,11 +124,20 @@ class Bot(irc.IRCClient):
             # Extract the nickname from the user string (format: "nick!user@host")
             nick = user.split('!')[0].lower()
             if nick == 'nickserv':
-                if config.verbose:
-                    log.msg(f"NickServ: {message}")
-                if 'identified' in message.lower() or 'recognized' in message.lower():
+                message_lower = message.lower()
+                
+                # Always log authentication failures
+                if any(fail_msg in message_lower for fail_msg in 
+                       ['invalid password', 'incorrect password', 'access denied', 
+                        'not registered', 'authentication failed', 'failed to identify']):
+                    log.err(f"NickServ authentication failed: {message}")
+                # Log successful authentication in verbose mode
+                elif 'identified' in message_lower or 'recognized' in message_lower:
                     if config.verbose:
-                        log.msg("NickServ authentication successful")
+                        log.msg(f"NickServ authentication successful: {message}")
+                # Log all other NickServ messages in verbose mode
+                elif config.verbose:
+                    log.msg(f"NickServ: {message}")
 
     def userJoined(self, user, channel):
         """Overrides USERJOINED."""
