@@ -44,13 +44,13 @@ class Bot(irc.IRCClient):
     def _get_nickname(self):
         """Sets Bot nick to our chosen nick instead of defaultnick."""
         return self.factory.nickname
-    
+
     def _set_nickname(self, value):
         """Allow Twisted to set the nickname internally."""
         # Twisted sets this during connection, we just ignore it
         # and keep using factory.nickname
         pass
-    
+
     nickname = property(_get_nickname, _set_nickname)
 
     def connectionMade(self):
@@ -270,8 +270,8 @@ class Bot(irc.IRCClient):
     def win(self, winner):
         """Is called when target score is reached."""
         numAnswerers = 0
-        quizzersByPoints = sorted(self.quizzers.items(), key=itemgetter(1),
-                                  reverse=True)
+        quizzersByPoints = sorted(self.quizzers.items(), key=lambda x: x[1] if x[1] is not None else 0,
+                            reverse=True)
         for numAnswerers, (quizzer, points) in enumerate(quizzersByPoints):
             if points is None:
                 break
@@ -445,7 +445,7 @@ if __name__ == "__main__":
         # Initialize logging
         import sys
         log.startLogging(sys.stdout)
-        
+
         reactor.connectTCP(config.network, config.port,
                            BotFactory('#' + config.chan))
         reactor.run()
