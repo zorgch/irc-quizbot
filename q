@@ -52,6 +52,9 @@ class Bot(irc.IRCClient):
         pass
 
     nickname = property(_get_nickname, _set_nickname)
+    
+    # Set the realname field for /whois
+    realname = "zorgch/irc-quizbot"
 
     def connectionMade(self):
         """Overrides CONNECTIONMADE."""
@@ -85,8 +88,23 @@ class Bot(irc.IRCClient):
 
     def signedOn(self):
         """Overrides SIGNEDON."""
-        self.join(self.factory.channel)
         log.msg(f"signed on as {self.nickname}")
+        
+        # Authenticate with NickServ if password is configured
+        if hasattr(self, 'password') and self.password:
+            log.msg(f"Authenticating with NickServ...")
+            self.msg("NickServ", f"IDENTIFY {self.password}")
+            # Wait 5 seconds for NickServ authentication before joining
+            # This delay ensures NickServ has time to process the IDENTIFY command
+            reactor.callLater(5, self._join_channel)
+        else:
+            log.msg("No password configured, skipping NickServ authentication")
+            self._join_channel()
+    
+    def _join_channel(self):
+        """Join the channel after authentication."""
+        log.msg(f"Joining channel {self.factory.channel}")
+        self.join(self.factory.channel)
 
     def joined(self, channel):
         """Overrides JOINED."""
@@ -96,6 +114,27 @@ class Bot(irc.IRCClient):
         self.sendLine("NAMES %s" % self.factory.channel)
         reactor.callLater(5, self.reset)
         reactor.callLater(5, self.decide)
+    
+    def noticed(self, user, channel, message):
+        """Handle NOTICE messages, particularly from NickServ."""
+        if user:
+            # Extract the nickname from the user string (format: "nick!user@host")
+            nick = user.split('!')[0].lower()
+            if nick == 'nickserv':
+                message_lower = message.lower()
+                
+                # Always log authentication failures
+                if any(fail_msg in message_lower for fail_msg in
+                       ['invalid password', 'incorrect password', 'access denied',
+                        'not registered', 'authentication failed', 'failed to identify']):
+                    log.err(f"NickServ authentication failed: {message}")
+                # Log successful authentication in verbose mode
+                elif 'identified' in message_lower or 'recognized' in message_lower:
+                    if config.verbose:
+                        log.msg(f"NickServ authentication successful: {message}")
+                # Log all other NickServ messages in verbose mode
+                elif config.verbose:
+                    log.msg(f"NickServ: {message}")
 
     def userJoined(self, user, channel):
         """Overrides USERJOINED."""
@@ -316,22 +355,27 @@ class Bot(irc.IRCClient):
         if self.is_p(user, self.factory.masters):
             importlib.reload(q)
             self.msg(self.factory.channel, 'reloaded questions.')
+            log.msg(f'{user} reloaded questions.')
 
     def feed(self):
         """Feed quizbot."""
         self.hunger = 0
         self.complained = False
         self.msg(self.factory.channel, strings.thanks)
+        if config.verbose:
+            log.msg(f'!bostnack by {user}')
 
     def op(self, user):
         """OP a master."""
         if self.is_p(user, self.factory.masters):
             self.msg('CHANSERV', 'op %s %s' % (self.factory.channel, user))
+            log.msg(f'/CHANSERV op {user}')
 
     def deop(self, user):
         """DEOP a master."""
         if self.is_p(user, self.factory.masters):
             self.msg('CHANSERV', 'deop %s %s' % (self.factory.channel, user))
+            log.msg(f'/CHANSERV deop {user}')
 
     def print_score(self):
         """Print the top five quizzers."""
@@ -353,6 +397,8 @@ class Bot(irc.IRCClient):
         for i, (quizzer, wins) in enumerate(hiscore):
             self.msg(self.factory.channel, strings.score %
                     (i + 1, quizzer.encode('UTF-8'), wins))
+        if config.verbose:
+            log.msg(f'!hiscore printed')
 
     def set_topic(self):
         self.dbcur.execute('SELECT * FROM hiscore ORDER by wins DESC LIMIT 1')
@@ -363,6 +409,8 @@ class Bot(irc.IRCClient):
             self.factory.channel, strings.channeltopic %
                     (self.target_score, self.winner, alltime[0].encode('UTF-8'),
                      alltime[1]))
+        if config.verbose:
+            log.msg(f'set /topic')
 
     def reset(self):
         """Set all quizzers' points to 0 and change topic."""
@@ -430,6 +478,8 @@ class BotFactory(protocol.ClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         log.err(f"couldn't connect: {reason}")
+        log.msg("reconnecting...")
+        connector.connect()
 
 if __name__ == "__main__":
     if len(argv) > 1:
