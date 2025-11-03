@@ -94,7 +94,8 @@ class Bot(irc.IRCClient):
         if hasattr(self, 'password') and self.password:
             log.msg(f"Authenticating with NickServ...")
             self.msg("NickServ", f"IDENTIFY {self.password}")
-            # Wait for NickServ authentication before joining
+            # Wait 3 seconds for NickServ authentication before joining
+            # This delay ensures NickServ has time to process the IDENTIFY command
             reactor.callLater(3, self._join_channel)
         else:
             log.msg("No password configured, skipping NickServ authentication")
@@ -116,10 +117,13 @@ class Bot(irc.IRCClient):
     
     def noticed(self, user, channel, message):
         """Handle NOTICE messages, particularly from NickServ."""
-        if user and 'NickServ' in user:
-            log.msg(f"NickServ: {message}")
-            if 'identified' in message.lower() or 'recognized' in message.lower():
-                log.msg("NickServ authentication successful")
+        if user:
+            # Extract the nickname from the user string (format: "nick!user@host")
+            nick = user.split('!')[0].lower()
+            if nick == 'nickserv':
+                log.msg(f"NickServ: {message}")
+                if 'identified' in message.lower() or 'recognized' in message.lower():
+                    log.msg("NickServ authentication successful")
 
     def userJoined(self, user, channel):
         """Overrides USERJOINED."""
