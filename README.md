@@ -1,10 +1,8 @@
-
 quizbot
 =======
 
 Small and simple quizbot for IRC
 --------------------------------
-
 
 Use
 ===
@@ -39,6 +37,9 @@ Masters commands:
 `!op` : OP a master.
 `!deop` : DEOP a master
 `!reload` : Reload the question/answer list.
+`!join` : Rejoin the configured default channel (#quiz)
+- `!join #newquiz` : Join a different channel (#newquiz)
+- `!join otherquiz` : Join #otherquiz (# is auto-added)
 
 General commands:
 `!score` : Print the top five quizzers
@@ -48,9 +49,9 @@ General commands:
 Dependencies
 ============
 
-quizbot is written in Python and runs on the 3.x interpreter (3.6+). The dependencies 
-below are listed with the oldest versions that are confirmed to work. Older 
-versions *might* work. If they do, please report it to <alexander@plaimi.net>, 
+quizbot is written in Python and runs on the 3.x interpreter (3.6+). The dependencies
+below are listed with the oldest versions that are confirmed to work. Older
+versions *might* work. If they do, please report it to <alexander@plaimi.net>,
 so that he can update this file.
 
 - python 3.6+
@@ -62,22 +63,22 @@ so that he can update this file.
 Python Version Note
 -------------------
 
-This bot has been refactored to support Python 3.x and is no longer compatible 
-with Python 2.x. If you need Python 2.7 support, please use an earlier version 
+This bot has been refactored to support Python 3.x and is no longer compatible
+with Python 2.x. If you need Python 2.7 support, please use an earlier version
 of this repository.
 
 
 quizbot in #quiznode on Freenode
 ================================
 
-My quizbot instance runs in the #quiznode channel on irc.freenode.net:6667.  
+My quizbot instance runs in the #quiznode channel on irc.freenode.net:6667.
 Feel free to check it out and come play. :-)
 
-Send questions and answers to me via email (see Author), so that quizbot has 
-more to choose from. I think it's more fun to let you guys decide what you are 
-interested in quizzing about, rather than parsing someone else's trivia 
-questions. Us the format of questions.py, or send me a diff. At the very 
-least, make sure you have "category - question - answer" or something like 
+Send questions and answers to me via email (see Author), so that quizbot has
+more to choose from. I think it's more fun to let you guys decide what you are
+interested in quizzing about, rather than parsing someone else's trivia
+questions. Us the format of questions.py, or send me a diff. At the very
+least, make sure you have "category - question - answer" or something like
 that.
 
 Happy quizzing!
@@ -98,13 +99,13 @@ Try to keep the source very short. Please take some time to come up with the
 shortest readable and logical solution to what you are trying to do. When you
 are finished, send me a pull-request using Github or an email (see Author).
 
-Please write sane commit messages. An introduction to git commit messages: 
-<http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html>. Do 
-small commits, and only working commits. No WIP-code. NOT IN MY BACK... 
+Please write sane commit messages. An introduction to git commit messages:
+<http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html>. Do
+small commits, and only working commits. No WIP-code. NOT IN MY BACK...
 repository...
 
-If you want to report a bug, use <https://secure.plaimi.net/bugs>.  If you 
-want to discuss some the game, give us suggestions etc. -- use 
+If you want to report a bug, use <https://secure.plaimi.net/bugs>.  If you
+want to discuss some the game, give us suggestions etc. -- use
 <https://secure.plaimi.net/mailing.php>.
 
 Happy hacking!
@@ -131,5 +132,6 @@ Author
 =======
 
 Alexander Berntsen <alexander@plaimi.net>
+zorg Verein <https://github.com/zorgch>
 
 /* vim: set textwidth=78 formatoptions=actw2 autoindent: */

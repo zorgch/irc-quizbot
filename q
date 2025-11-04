@@ -275,6 +275,8 @@ class Bot(irc.IRCClient):
             self.print_score()
         elif msg.startswith('!hiscore'):
             self.print_hiscore()
+        elif msg.startswith('!join'):
+            self.rejoin_channel(name, msg)
         # Unknown command.
         elif msg[0] == '!':
             self.msg(self.factory.channel if channel != self.nickname else
@@ -424,7 +426,7 @@ class Bot(irc.IRCClient):
             self.msg(user, msgline)
 
     def reload_questions(self, user):
-        """Reload the question/answer list."""
+        """Reload the question/answer list. Masters only."""
         if self.is_p(user, self.factory.masters):
             importlib.reload(q)
             self.msg(self.factory.channel, 'reloaded questions.')
@@ -436,7 +438,7 @@ class Bot(irc.IRCClient):
         self.complained = False
         self.msg(self.factory.channel, strings.thanks)
         if config.verbose:
-            log.msg(f'!bostnack by {user}')
+            log.msg(f'!bostnack received')
 
     def op(self, user):
         """OP a master."""
@@ -472,6 +474,45 @@ class Bot(irc.IRCClient):
                     (i + 1, quizzer.encode('UTF-8'), wins))
         if config.verbose:
             log.msg(f'!hiscore printed')
+
+    def rejoin_channel(self, user, msg):
+        """Force bot to (re)join a channel. Masters only."""
+        if self.is_p(user, self.factory.masters):
+            parts = msg.split()
+
+            # Check if a specific channel was provided
+            if len(parts) > 1:
+                target_channel = parts[1]
+                # Ensure channel name starts with #
+                if not target_channel.startswith('#'):
+                    target_channel = '#' + target_channel
+            else:
+                # Use configured default channel
+                target_channel = self.factory.channel
+
+            log.msg(f'{user} commanded to join {target_channel}')
+
+            # Part the channel first if we're already in it
+            try:
+                self.leave(target_channel, reason="Rejoining on command")
+            except:
+                # Ignore errors if we're not in the channel
+                pass
+
+            # Wait 2 seconds, then join
+            reactor.callLater(2, self._do_join, target_channel, user)
+        else:
+            # Not a master - ignore silently or send error
+            if config.verbose:
+                log.msg(f'{user} tried to use !join but is not a master')
+
+    def _do_join(self, target_channel, requester):
+        """Actually perform the join after a delay."""
+        log.msg(f"Joining {target_channel} as commanded by {requester}")
+        self.join(target_channel)
+
+        # Inform the requester
+        self.msg(requester, f"Attempting to join {target_channel}")
 
     def set_topic(self):
         self.dbcur.execute('SELECT * FROM hiscore ORDER by wins DESC LIMIT 1')
