@@ -58,6 +58,10 @@ class Bot(irc.IRCClient):
 
     def connectionMade(self):
         """Overrides CONNECTIONMADE."""
+        # Initialize NickServ state tracking
+        self.nickserv_auth_pending = False
+        self.nickserv_register_pending = False
+
         # Identifies with nick services if password is set.
         if config.password:
             self.password = self.factory.password
@@ -93,10 +97,11 @@ class Bot(irc.IRCClient):
         # Authenticate with NickServ if password is configured
         if hasattr(self, 'password') and self.password:
             log.msg(f"Authenticating with NickServ...")
+            self.nickserv_auth_pending = True
             self.msg("NickServ", f"IDENTIFY {self.password}")
-            # Wait 5 seconds for NickServ authentication before joining
-            # This delay ensures NickServ has time to process the IDENTIFY command
-            reactor.callLater(5, self._join_channel)
+            # Wait 8 seconds for NickServ authentication before joining
+            # This allows time for potential registration flow
+            reactor.callLater(8, self._join_channel)
         else:
             log.msg("No password configured, skipping NickServ authentication")
             self._join_channel()
@@ -106,15 +111,6 @@ class Bot(irc.IRCClient):
         log.msg(f"Joining channel {self.factory.channel}")
         self.join(self.factory.channel)
 
-    def joined(self, channel):
-        """Overrides JOINED."""
-        log.msg(f"joined {channel}")
-        self.op(self.nickname)
-        # Get all users in the chan.
-        self.sendLine("NAMES %s" % self.factory.channel)
-        reactor.callLater(5, self.reset)
-        reactor.callLater(5, self.decide)
-    
     def noticed(self, user, channel, message):
         """Handle NOTICE messages, particularly from NickServ."""
         if user:
@@ -123,18 +119,95 @@ class Bot(irc.IRCClient):
             if nick == 'nickserv':
                 message_lower = message.lower()
                 
-                # Always log authentication failures
+
+                # Automatically register the nick
+                # IDENTIFY failed because nick isn't registered
+                if (hasattr(self, 'nickserv_auth_pending') and self.nickserv_auth_pending and
+                    any(msg in message_lower for msg in
+                        ['not registered', "isn't registered", 'is not registered',
+                        "hasn't been registered", "not been registered"])):
+                    log.msg(f"Nick '{self.nickname}' not registered - auto-registering...")
+                    self.nickserv_auth_pending = False
+                    self.nickserv_register_pending = True
+
+                    # Use a valid email format
+                    if hasattr(self, 'username') and self.username:
+                        email = f"{self.username}@local.internal"
+                    else:
+                        email = f"{self.nickname}@local.internal"
+
+                    self.msg("NickServ", f"REGISTER {self.password} {email}")
+                    return
+
+                # REGISTER succeeded - now authenticate
+                if (hasattr(self, 'nickserv_register_pending') and self.nickserv_register_pending and
+                    any(msg in message_lower for msg in
+                        ['registered', 'now owns', 'password accepted', 'now registered',
+                        'registration complete', 'successfully registered'])):
+                    log.msg(f"✓ Nick registered successfully")
+                    self.nickserv_register_pending = False
+
+                    # Authenticate with the newly registered nick
+                    log.msg(f"Authenticating with newly registered nick...")
+                    self.nickserv_auth_pending = True
+                    self.msg("NickServ", f"IDENTIFY {self.password}")
+                    return
+
+                # REGISTER failed
+                if (hasattr(self, 'nickserv_register_pending') and self.nickserv_register_pending and
+                    any(msg in message_lower for msg in
+                        ['invalid', 'error', 'denied', 'failed', 'not a valid'])):
+                    log.err(f"✗ Nick registration failed: {message}")
+                    self.nickserv_register_pending = False
+                    return
+
+                # IDENTIFY failed (wrong password, etc.)
                 if any(fail_msg in message_lower for fail_msg in
-                       ['invalid password', 'incorrect password', 'access denied',
-                        'not registered', 'authentication failed', 'failed to identify']):
+                    ['invalid password', 'incorrect password', 'access denied',
+                        'authentication failed', 'failed to identify']):
                     log.err(f"NickServ authentication failed: {message}")
-                # Log successful authentication in verbose mode
-                elif 'identified' in message_lower or 'recognized' in message_lower:
+                    if hasattr(self, 'nickserv_auth_pending'):
+                        self.nickserv_auth_pending = False
+                    return
+
+                # IDENTIFY succeeded
+                if 'identified' in message_lower or 'recognized' in message_lower or 'password accepted' in message_lower:
                     if config.verbose:
-                        log.msg(f"NickServ authentication successful: {message}")
-                # Log all other NickServ messages in verbose mode
-                elif config.verbose:
+                        log.msg(f"✓ NickServ authentication successful")
+                    if hasattr(self, 'nickserv_auth_pending'):
+                        self.nickserv_auth_pending = False
+                    return
+
+                # Any other NickServ message (verbose logging only)
+                if config.verbose:
                     log.msg(f"NickServ: {message}")
+
+    def joined(self, channel):
+        """Overrides JOINED - called automatically whenever we join any channel."""
+        log.msg(f"joined {channel}")
+
+        # Request ops from ChanServ if we're identified
+        if hasattr(self, 'password') and self.password:
+            log.msg(f"Requesting ops from ChanServ for {channel}")
+            reactor.callLater(1, self._request_ops, channel)
+        else:
+            # No password configured, try to op ourselves directly
+            self.op(self.nickname)
+            self._continue_join_setup(channel)
+
+    def _request_ops(self, channel):
+        """Request ops from ChanServ."""
+        self.msg("ChanServ", f"OP {channel}")
+        log.msg(f"Sent OP request to ChanServ for {channel}")
+        # Wait for ChanServ to op us before continuing
+        reactor.callLater(2, self._continue_join_setup, channel)
+
+    def _continue_join_setup(self, channel):
+        """Continue with join setup after getting ops."""
+        # Get all users in the chan
+        self.sendLine("NAMES %s" % channel)
+        reactor.callLater(5, self.reset)
+        reactor.callLater(5, self.decide)
 
     def userJoined(self, user, channel):
         """Overrides USERJOINED."""
